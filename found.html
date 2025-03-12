@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Item Hunt</title>
+  <!-- Load Firebase App and Firestore libraries -->
+  <script src="https://www.gstatic.com/firebasejs/9.19.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.19.1/firebase-firestore-compat.js"></script>
+  <style>
+    /* Basic styling for the found item page */
+    body {
+      font-family: Helvetica, sans-serif;
+      background-color: whitesmoke;
+      margin: 0;
+      text-align: center;
+      padding: 20px;
+    }
+    /* Container for the found item message box */
+    .found-box {
+      width: 80%;
+      max-width: 400px;
+      margin: 20vh auto;
+      padding: 20px;
+      border-radius: 20px;
+      background: white;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    }
+  </style>
+</head>
+<body>
+  <!-- This box displays the found item details -->
+  <div class="found-box" id="foundBox">
+    <h2>Item <span id="itemNumber"></span> Found!</h2>
+    <img id="itemImage" src="" alt="Found Item" style="width:150px; border-radius:10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);" />
+    <p>Well done. You may keep the item.</p>
+  </div>
+
+  <script>
+    // Full Firebase configuration (using your provided config)
+    const firebaseConfig = {
+      apiKey: "AIzaSyCiN_rH3ekJXC_W7MU2xZ77Vu7CYrS6uYQ",
+      authDomain: "item-hunt.firebaseapp.com",
+      projectId: "item-hunt",
+      storageBucket: "item-hunt.firebasestorage.app",
+      messagingSenderId: "995765553615",
+      appId: "1:995765553615:web:a253fff364374039bbeaba",
+      measurementId: "G-5ER7MBLZZ7"
+    };
+
+    // Initialize Firebase and Firestore.
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // Retrieve the unique random code from the URL parameter.
+    // Each QR code points to a URL like: found.html?code=RANDOMCODE123
+    const urlParams = new URLSearchParams(window.location.search);
+    const randomCode = urlParams.get('code');
+
+    // Function to handle the found item.
+    function handleFoundItem(doc) {
+      // The document's ID can be used as the item code.
+      const itemCode = doc.id;
+      // Update the item in Firestore: mark as found and store the current date.
+      db.collection("items").doc(itemCode).set({
+        found: true,
+        dateFound: new Date().toISOString()
+      }, { merge: true })
+      .then(() => console.log("Item updated as found"))
+      .catch(error => console.error("Error updating item:", error));
+
+      // Update the found item page with the item's details.
+      document.getElementById('itemNumber').textContent = itemCode;
+      // Set the image source based on the item code (e.g., "001.jpg")
+      document.getElementById('itemImage').src = itemCode + ".jpg";
+    }
+
+    // If a random code was provided, query Firestore to find the matching item.
+    if (randomCode) {
+      // Query the "items" collection where the "randomCode" field matches the provided code.
+      db.collection("items").where("randomCode", "==", randomCode).get()
+        .then(querySnapshot => {
+          if (querySnapshot.empty) {
+            console.error("No item found for this code.");
+            document.getElementById('foundBox').innerHTML = "<p>Error: Item not found.</p>";
+          } else {
+            // If found, process the first matching document.
+            querySnapshot.forEach(doc => {
+              handleFoundItem(doc);
+            });
+          }
+        })
+        .catch(error => {
+          console.error("Error querying item:", error);
+          document.getElementById('foundBox').innerHTML = "<p>Error retrieving item.</p>";
+        });
+    } else {
+      console.error("No random code provided in the URL.");
+      document.getElementById('foundBox').innerHTML = "<p>Error: No code provided.</p>";
+    }
+  </script>
+</body>
+</html>
