@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Initialize Items</title>
+  <!-- Load Firebase libraries -->
+  <script src="https://www.gstatic.com/firebasejs/9.19.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.19.1/firebase-firestore-compat.js"></script>
+  <style>
+    body {
+      font-family: Helvetica, sans-serif;
+      background-color: whitesmoke;
+      text-align: center;
+      padding: 20px;
+    }
+    button {
+      font-size: 1.2em;
+      padding: 10px 20px;
+    }
+    .message {
+      margin-top: 20px;
+      font-size: 1.2em;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h2>Initialize 30 Item Documents</h2>
+  <p>This page will create 30 items with default values in Firestore under <code>items</code>.</p>
+  <button id="initBtn">Initialize Items</button>
+  <div class="message" id="message"></div>
+
+  <script>
+    // Full Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyCiN_rH3ekJXC_W7MU2xZ77Vu7CYrS6uYQ",
+      authDomain: "item-hunt.firebaseapp.com",
+      projectId: "item-hunt",
+      storageBucket: "item-hunt.firebasestorage.app",
+      messagingSenderId: "995765553615",
+      appId: "1:995765553615:web:a253fff364374039bbeaba",
+      measurementId: "G-5ER7MBLZZ7"
+    };
+
+    // Initialize Firebase and Firestore.
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // When the button is clicked, create 30 items with default values.
+    document.getElementById("initBtn").addEventListener("click", async () => {
+      let promises = [];
+      for (let i = 1; i <= 30; i++) {
+        // Create a two-digit item ID, e.g., "01", "02", … "30"
+        let itemId = ("00" + i).slice(-2);
+        // Default values: found = 0, dateFound = "", ip = "0.0.0.0"
+        let itemData = {
+          found: 0,
+          dateFound: "",
+          ip: "0.0.0.0"
+        };
+        // Write the document in the "items" collection.
+        promises.push(db.collection("items").doc(itemId).set(itemData));
+      }
+      try {
+        await Promise.all(promises);
+        document.getElementById("message").textContent = "30 items have been initialized successfully!";
+      } catch (error) {
+        document.getElementById("message").textContent = "Error initializing items: " + error;
+      }
+    });
+  </script>
+</body>
+</html>
