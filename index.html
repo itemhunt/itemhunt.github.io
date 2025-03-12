@@ -8,7 +8,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.19.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.19.1/firebase-firestore-compat.js"></script>
   <style>
-    /* Change entire page font to a typewriter-style font */
+    /* Basic page styling with typewriter font */
     body {
       margin: 0;
       font-family: "Courier New", Courier, monospace;
@@ -57,11 +57,11 @@
       align-items: center;
       margin-top: 10px;
     }
-    /* Grid text now 60% of previous size (0.6 × 1.44em = 0.864em) */
+    /* Decreased grid text size (60% of current value) */
     .item-number,
     .status {
       font-weight: bold;
-      font-size: 0.864em;
+      font-size: 0.86em;
       margin: 5px 0;
     }
     .red-color {
@@ -77,4 +77,200 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background:
+      background: rgba(255,255,255,0.7);
+      backdrop-filter: blur(5px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+      pointer-events: none;
+    }
+    .overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .found-box {
+      background: white;
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+      text-align: center;
+      max-width: 90%;
+    }
+    .found-box img {
+      width: 150px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+  <!-- Main grid container -->
+  <div class="grid-container" id="gridContainer"></div>
+
+  <!-- Overlay modal (hidden by default) for found item -->
+  <div class="overlay" id="foundOverlay">
+    <div class="found-box">
+      <h2>Item <span id="itemNumber"></span> Found!</h2>
+      <img id="itemImage" src="" alt="Found Item">
+      <p>Well done. You may keep the item.</p>
+    </div>
+  </div>
+
+  <script>
+    // Full Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyCiN_rH3ekJXC_W7MU2xZ77Vu7CYrS6uYQ",
+      authDomain: "item-hunt.firebaseapp.com",
+      projectId: "item-hunt",
+      storageBucket: "item-hunt.firebasestorage.app",
+      messagingSenderId: "995765553615",
+      appId: "1:995765553615:web:a253fff364374039bbeaba",
+      measurementId: "G-5ER7MBLZZ7"
+    };
+
+    // Initialize Firebase and Firestore.
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // Utility: Format current date/time as "HH:MM DD/MM/YY"
+    function formatCurrentDateTime() {
+      const now = new Date();
+      const hours = now.getHours().toString().padStart(2, '0');
+      const minutes = now.getMinutes().toString().padStart(2, '0');
+      const day = now.getDate();
+      const month = now.getMonth() + 1;
+      const year = now.getFullYear().toString().slice(-2);
+      return `${hours}:${minutes} ${day}/${month}/${year}`;
+    }
+
+    // Load the grid of 30 items from the "items" collection.
+    async function loadItems() {
+      let itemsData = {};
+      try {
+        const snapshot = await db.collection("items").get();
+        snapshot.forEach(doc => {
+          itemsData[doc.id] = doc.data();
+        });
+      } catch (error) {
+        console.error("Error fetching items:", error);
+      }
+      const container = document.getElementById('gridContainer');
+      container.innerHTML = ""; // Clear container
+      for (let i = 1; i <= 30; i++) {
+        let id = ("00" + i).slice(-2);
+        let data = itemsData[id] || { found: 0, dateFound: "", ip: "0.0.0.0" };
+        let found = data.found;
+        let statusText = found
+          ? data.dateFound ? `Found at ${data.dateFound}` : "item found"
+          : "item not found";
+
+        // Create grid cell
+        const gridItem = document.createElement('div');
+        gridItem.classList.add('grid-item');
+
+        const gridInner = document.createElement('div');
+        gridInner.classList.add('grid-inner');
+        gridInner.style.borderColor = found ? '#0F9D58' : '#DB4437';
+
+        const img = document.createElement('img');
+        img.src = id + ".jpg";
+        img.alt = `Item ${id}`;
+        gridInner.appendChild(img);
+
+        const infoDiv = document.createElement('div');
+        infoDiv.classList.add('info');
+
+        const numberDiv = document.createElement('div');
+        numberDiv.classList.add('item-number');
+        numberDiv.textContent = id;
+        infoDiv.appendChild(numberDiv);
+
+        const statusDiv = document.createElement('div');
+        statusDiv.classList.add('status', found ? 'green-color' : 'red-color');
+        statusDiv.textContent = statusText;
+        infoDiv.appendChild(statusDiv);
+
+        gridInner.appendChild(infoDiv);
+        gridItem.appendChild(gridInner);
+        container.appendChild(gridItem);
+      }
+    }
+
+    // Function to overlay the "found" message.
+    function showFoundOverlay(itemId) {
+      document.getElementById('itemNumber').textContent = itemId;
+      document.getElementById('itemImage').src = itemId + ".jpg";
+      document.getElementById('foundOverlay').classList.add('active');
+    }
+
+    // Get URL parameter "code"
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlCode = urlParams.get('code');
+
+    // Main logic: If a code is provided, check against known codes.
+    if (urlCode) {
+      // Fetch the known codes document from collection "codes", document "0wkfRuq3MOUsE58I8GIX"
+      db.collection("codes").doc("0wkfRuq3MOUsE58I8GIX").get()
+        .then(doc => {
+          if (!doc.exists) {
+            console.error("Codes document not found.");
+            loadItems(); // Just load grid if error
+            return;
+          }
+          const codesData = doc.data();
+          let matchedItem = null;
+          // Loop through each field (e.g., "01", "02", …) to find a match.
+          for (let key in codesData) {
+            if (codesData[key] === urlCode) {
+              matchedItem = key; // key is the associated item number (e.g., "01")
+              break;
+            }
+          }
+          if (!matchedItem) {
+            // No match found: simply load grid.
+            loadItems();
+            return;
+          }
+          // Get visitor IP using ipify.
+          fetch("https://api.ipify.org?format=json")
+            .then(response => response.json())
+            .then(ipData => {
+              const ip = ipData.ip || "0.0.0.0";
+              const dateTime = formatCurrentDateTime();
+              // Update the matched item in the "items" collection.
+              db.collection("items").doc(matchedItem).set({
+                found: 1,
+                dateFound: dateTime,
+                ip: ip
+              }, { merge: true })
+              .then(() => {
+                console.log("Item " + matchedItem + " updated as found.");
+                // Reload grid so status is updated.
+                loadItems();
+                // Show the overlay modal.
+                showFoundOverlay(matchedItem);
+              })
+              .catch(error => {
+                console.error("Error updating item:", error);
+                loadItems();
+              });
+            })
+            .catch(error => {
+              console.error("Error fetching IP:", error);
+              loadItems();
+            });
+        })
+        .catch(error => {
+          console.error("Error retrieving codes:", error);
+          loadItems();
+        });
+    } else {
+      // No code provided, just load the grid.
+      loadItems();
+    }
+  </script>
+</body>
+</html>
