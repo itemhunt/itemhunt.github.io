@@ -3,60 +3,71 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>item.hunt</title>
+  <title>Item Hunt</title>
+  <!-- Load Firebase App and Firestore libraries -->
   <script src="https://www.gstatic.com/firebasejs/9.19.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.19.1/firebase-firestore-compat.js"></script>
   <style>
+    /* Basic page styling */
     body {
       margin: 0;
       font-family: Helvetica, sans-serif;
       background-color: whitesmoke;
     }
+    /* Container for the grid */
     .grid-container {
       display: grid;
       grid-gap: 16px;
       padding: 16px;
     }
+    /* Responsive grid: 2 columns on small screens */
     @media (max-width: 767px) {
       .grid-container {
         grid-template-columns: repeat(2, 1fr);
       }
     }
+    /* Responsive grid: 5 columns on larger screens */
     @media (min-width: 768px) {
       .grid-container {
         grid-template-columns: repeat(5, 1fr);
       }
     }
+    /* Outer cell styling with off-white border, rounded corners, and drop shadow */
     .grid-item {
-      border: 4px solid #f8f8f8;
+      border: 4px solid #f8f8f8; /* off-white */
       border-radius: 20px;
       box-shadow: 0 4px 8px rgba(0,0,0,0.1);
       overflow: hidden;
     }
+    /* Inner container for content with a colored border indicating found status */
     .grid-inner {
       margin: 4px;
       padding: 10px;
-      border: 6px solid;
+      border: 6px solid; /* 6px = 1.5x thicker than original */
       border-radius: 16px;
     }
+    /* Item image styling with soft drop shadow */
     .grid-inner img {
       width: 100%;
       display: block;
       border-radius: 10px;
       box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
+    /* Info bar for displaying item number and status on a single horizontal line */
     .info {
       display: flex;
-      justify-content: space-between;
+      justify-content: space-between; /* Left align item number, right align status */
       align-items: center;
       margin-top: 10px;
     }
+    /* Bold text for item number and status with a reduced size (0.8× of 1.8em = 1.44em) */
     .item-number,
     .status {
       font-weight: bold;
       font-size: 1.44em;
       margin: 5px 0;
     }
+    /* Color classes for status: green for found, red for not found */
     .red-color {
       color: #DB4437;
     }
@@ -66,9 +77,11 @@
   </style>
 </head>
 <body>
+  <!-- Grid container to hold all item cells -->
   <div class="grid-container" id="gridContainer"></div>
 
   <script>
+    // Full Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyCiN_rH3ekJXC_W7MU2xZ77Vu7CYrS6uYQ",
       authDomain: "item-hunt.firebaseapp.com",
@@ -79,9 +92,11 @@
       measurementId: "G-5ER7MBLZZ7"
     };
 
+    // Initialize Firebase and Firestore
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
+    // Helper function to calculate the status text based on the date the item was found
     function calculateStatusText(dateFound) {
       const foundDate = new Date(dateFound);
       const today = new Date();
@@ -94,9 +109,12 @@
       return `item found ${diffDays} days ago`;
     }
 
+    // Load items from Firebase and populate the grid.
+    // The grid displays 50 items (item codes 001 to 050).
     async function loadItems() {
       let itemsData = {};
       try {
+        // Fetch all documents from the "items" collection
         const snapshot = await db.collection("items").get();
         snapshot.forEach(doc => {
           itemsData[doc.id] = doc.data();
@@ -107,45 +125,56 @@
 
       const container = document.getElementById('gridContainer');
       for (let i = 1; i <= 50; i++) {
+        // Create a 3-digit code for each item (e.g., "001")
         let code = ("000" + i).slice(-3);
+        // If no document exists for this code, assume the item is not found.
         let data = itemsData[code] || { found: false };
         let found = data.found;
+        // Determine the appropriate status text.
         let statusText = found && data.dateFound ? calculateStatusText(data.dateFound) : "item not found";
 
+        // Create the outer cell container.
         const gridItem = document.createElement('div');
         gridItem.classList.add('grid-item');
 
+        // Create the inner container with the colored border.
         const gridInner = document.createElement('div');
         gridInner.classList.add('grid-inner');
+        // Set the inner border color based on whether the item is found.
         gridInner.style.borderColor = found ? '#0F9D58' : '#DB4437';
 
+        // Create and set up the image element.
         const img = document.createElement('img');
+        // Each image is assumed to be accessible as "[code].jpg"
         img.src = code + ".jpg";
         img.alt = `Item ${code}`;
         gridInner.appendChild(img);
 
+        // Create the info bar that displays the item number and its found status.
         const infoDiv = document.createElement('div');
         infoDiv.classList.add('info');
 
+        // Left side: item number
         const numberDiv = document.createElement('div');
         numberDiv.classList.add('item-number');
         numberDiv.textContent = code;
         infoDiv.appendChild(numberDiv);
 
+        // Right side: status text
         const statusDiv = document.createElement('div');
         statusDiv.classList.add('status', found ? 'green-color' : 'red-color');
         statusDiv.textContent = statusText;
         infoDiv.appendChild(statusDiv);
 
+        // Append the info bar to the inner container, then the inner container to the outer cell.
         gridInner.appendChild(infoDiv);
         gridItem.appendChild(gridInner);
         container.appendChild(gridItem);
       }
     }
 
+    // Load items once the page has loaded.
     loadItems();
   </script>
 </body>
 </html>
-
-
