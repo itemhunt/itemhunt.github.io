@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Item Found</title>
+  <script src="https://www.gstatic.com/firebasejs/9.19.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.19.1/firebase-firestore-compat.js"></script>
+  <style>
+    body {
+      font-family: Helvetica, sans-serif;
+      text-align: center;
+      background-color: whitesmoke;
+    }
+    .found-box {
+      width: 80%;
+      max-width: 400px;
+      margin: 20vh auto;
+      padding: 20px;
+      border-radius: 20px;
+      background: white;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+  <div class="found-box">
+    <h2>Item <span id="itemNumber"></span> Found!</h2>
+    <p>Well done. You may keep the item.</p>
+  </div>
+
+  <script>
+    const firebaseConfig = { /* SAME CONFIG AS BEFORE */ };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const itemCode = urlParams.get('code');
+
+    document.getElementById('itemNumber').textContent = itemCode;
+
+    if (itemCode) {
+      db.collection("items").doc(itemCode).set({
+        found: true,
+        dateFound: new Date().toISOString()
+      }, { merge: true });
+    }
+  </script>
+
+</body>
+</html>
