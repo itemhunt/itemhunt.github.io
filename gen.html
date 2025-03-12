@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Generate Codes</title>
+  <!-- Load Firebase libraries -->
+  <script src="https://www.gstatic.com/firebasejs/9.19.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.19.1/firebase-firestore-compat.js"></script>
+  <style>
+    body {
+      font-family: Helvetica, sans-serif;
+      background-color: whitesmoke;
+      text-align: center;
+      padding: 20px;
+    }
+    .message {
+      margin-top: 20px;
+      font-size: 1.2em;
+      font-weight: bold;
+    }
+    pre {
+      background: #f0f0f0;
+      padding: 10px;
+      text-align: left;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+  <h2>Generate 30 Item Codes</h2>
+  <p>This page will create codes in the format [item number][6 random characters] for items 01 to 30 and save them in Firestore.</p>
+  <button id="generateBtn">Generate Codes</button>
+  <div class="message" id="message"></div>
+  <pre id="codesOutput"></pre>
+
+  <script>
+    // Full Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyCiN_rH3ekJXC_W7MU2xZ77Vu7CYrS6uYQ",
+      authDomain: "item-hunt.firebaseapp.com",
+      projectId: "item-hunt",
+      storageBucket: "item-hunt.firebasestorage.app",
+      messagingSenderId: "995765553615",
+      appId: "1:995765553615:web:a253fff364374039bbeaba",
+      measurementId: "G-5ER7MBLZZ7"
+    };
+
+    // Initialize Firebase and Firestore.
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // Define the character set (uppercase letters and digits)
+    const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+    // Function to generate a random string of a given length from charset.
+    function randomString(length) {
+      let result = "";
+      for (let i = 0; i < length; i++) {
+        result += charset.charAt(Math.floor(Math.random() * charset.length));
+      }
+      return result;
+    }
+
+    // When the button is clicked, generate codes and write them to Firestore.
+    document.getElementById("generateBtn").addEventListener("click", async function() {
+      let codesObj = {};
+      let codesList = "";
+      // Loop through items 1 to 30.
+      for (let i = 1; i <= 30; i++) {
+        // Format item number as 2-digit string (e.g., "01")
+        let itemNum = ("00" + i).slice(-2);
+        // Generate 6 random characters.
+        let randomPart = randomString(6);
+        // The full code is the concatenation.
+        let fullCode = itemNum + randomPart;
+        codesObj[itemNum] = fullCode;
+        codesList += itemNum + ": " + fullCode + "\n";
+      }
+      try {
+        // Save the codes object in collection "codes", document "0wkfRuq3MOUsE58I8GIX"
+        await db.collection("codes").doc("0wkfRuq3MOUsE58I8GIX").set(codesObj);
+        document.getElementById("message").textContent = "Codes generated and saved successfully!";
+        document.getElementById("codesOutput").textContent = codesList;
+      } catch (error) {
+        document.getElementById("message").textContent = "Error saving codes: " + error;
+      }
+    });
+  </script>
+</body>
+</html>
