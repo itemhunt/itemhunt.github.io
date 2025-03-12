@@ -4,37 +4,35 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Item Hunt</title>
-  <!-- Load Firebase App and Firestore libraries -->
+  <!-- Load Firebase libraries -->
   <script src="https://www.gstatic.com/firebasejs/9.19.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.19.1/firebase-firestore-compat.js"></script>
   <style>
-    /* Basic styling */
+    /* Basic page styling */
     body {
       margin: 0;
       font-family: Helvetica, sans-serif;
       background-color: whitesmoke;
     }
-    /* Container for grid items */
+    /* Grid container for items */
     .grid-container {
       display: grid;
       grid-gap: 16px;
       padding: 16px;
     }
-    /* Responsive grid: 2 columns on small screens */
     @media (max-width: 767px) {
       .grid-container {
         grid-template-columns: repeat(2, 1fr);
       }
     }
-    /* Responsive grid: 5 columns on larger screens */
     @media (min-width: 768px) {
       .grid-container {
         grid-template-columns: repeat(5, 1fr);
       }
     }
-    /* Outer cell styling */
+    /* Outer grid cell styling */
     .grid-item {
-      border: 4px solid #f8f8f8; /* off-white */
+      border: 4px solid #f8f8f8;
       border-radius: 20px;
       box-shadow: 0 4px 8px rgba(0,0,0,0.1);
       overflow: hidden;
@@ -43,42 +41,82 @@
     .grid-inner {
       margin: 4px;
       padding: 10px;
-      border: 6px solid; /* 6px thick border */
+      border: 6px solid;
       border-radius: 16px;
     }
-    /* Item image styling */
     .grid-inner img {
       width: 100%;
       display: block;
       border-radius: 10px;
       box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
-    /* Info bar for item number and status */
+    /* Info bar: item number left, status right */
     .info {
       display: flex;
-      justify-content: space-between; /* item number left, status right */
+      justify-content: space-between;
       align-items: center;
       margin-top: 10px;
     }
     .item-number,
     .status {
       font-weight: bold;
-      /* Reduced text size: 0.8× of previous 1.8em = 1.44em */
-      font-size: 1.44em;
+      font-size: 1.44em; /* 0.8× of 1.8em */
       margin: 5px 0;
     }
-    /* Colors for status */
     .red-color {
       color: #DB4437;
     }
     .green-color {
       color: #0F9D58;
     }
+    /* Overlay modal for found item */
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255,255,255,0.7);
+      backdrop-filter: blur(5px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+      pointer-events: none;
+    }
+    .overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .found-box {
+      background: white;
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+      text-align: center;
+      max-width: 90%;
+    }
+    .found-box img {
+      width: 150px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
   </style>
 </head>
 <body>
-  <!-- Grid container for the 30 items -->
+  <!-- Main grid container -->
   <div class="grid-container" id="gridContainer"></div>
+
+  <!-- Overlay modal (hidden by default) for found item -->
+  <div class="overlay" id="foundOverlay">
+    <div class="found-box">
+      <h2>Item <span id="itemNumber"></span> Found!</h2>
+      <img id="itemImage" src="" alt="Found Item">
+      <p>Well done. You may keep the item.</p>
+    </div>
+  </div>
 
   <script>
     // Full Firebase configuration
@@ -96,23 +134,21 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    // Helper function to compute status text from a date.
-    function calculateStatusText(dateFound) {
-      const foundDate = new Date(dateFound);
-      const today = new Date();
-      foundDate.setHours(0,0,0,0);
-      today.setHours(0,0,0,0);
-      const diffDays = (today - foundDate) / (1000 * 60 * 60 * 24);
-      if (diffDays === 0) return "item found today";
-      if (diffDays === 1) return "item found yesterday";
-      return `item found ${diffDays} days ago`;
+    // Utility: Format current date/time as "HH:MM DD/MM/YY"
+    function formatCurrentDateTime() {
+      const now = new Date();
+      const hours = now.getHours().toString().padStart(2, '0');
+      const minutes = now.getMinutes().toString().padStart(2, '0');
+      const day = now.getDate();
+      const month = now.getMonth() + 1;
+      const year = now.getFullYear().toString().slice(-2);
+      return `${hours}:${minutes} ${day}/${month}/${year}`;
     }
 
-    // Load the status of items from Firestore and display the grid.
+    // Load the grid of 30 items from the "items" collection.
     async function loadItems() {
       let itemsData = {};
       try {
-        // Retrieve all documents from the "items" collection.
         const snapshot = await db.collection("items").get();
         snapshot.forEach(doc => {
           itemsData[doc.id] = doc.data();
@@ -120,56 +156,120 @@
       } catch (error) {
         console.error("Error fetching items:", error);
       }
-
       const container = document.getElementById('gridContainer');
-      // Loop from 1 to 30, using 2-digit numbers ("01", "02", …, "30")
+      container.innerHTML = ""; // Clear container
       for (let i = 1; i <= 30; i++) {
-        let code = ("00" + i).slice(-2);
-        // If an item document isn’t found, assume it’s not been found.
-        let data = itemsData[code] || { found: false };
+        let id = ("00" + i).slice(-2);
+        let data = itemsData[id] || { found: 0, dateFound: "", ip: "0.0.0.0" };
         let found = data.found;
-        let statusText = found && data.dateFound ? calculateStatusText(data.dateFound) : "item not found";
+        let statusText = found
+          ? data.dateFound ? `Found at ${data.dateFound}` : "item found"
+          : "item not found";
 
-        // Create the outer grid cell.
+        // Create grid cell
         const gridItem = document.createElement('div');
         gridItem.classList.add('grid-item');
 
-        // Create inner container with colored border.
         const gridInner = document.createElement('div');
         gridInner.classList.add('grid-inner');
         gridInner.style.borderColor = found ? '#0F9D58' : '#DB4437';
 
-        // Create the image element. The image is expected at "[item code].jpg"
         const img = document.createElement('img');
-        img.src = code + ".jpg";
-        img.alt = `Item ${code}`;
+        img.src = id + ".jpg";
+        img.alt = `Item ${id}`;
         gridInner.appendChild(img);
 
-        // Create the info bar for item number and status.
         const infoDiv = document.createElement('div');
         infoDiv.classList.add('info');
 
-        // Left: item number.
         const numberDiv = document.createElement('div');
         numberDiv.classList.add('item-number');
-        numberDiv.textContent = code;
+        numberDiv.textContent = id;
         infoDiv.appendChild(numberDiv);
 
-        // Right: status text.
         const statusDiv = document.createElement('div');
         statusDiv.classList.add('status', found ? 'green-color' : 'red-color');
         statusDiv.textContent = statusText;
         infoDiv.appendChild(statusDiv);
 
-        // Assemble the cell.
         gridInner.appendChild(infoDiv);
         gridItem.appendChild(gridInner);
         container.appendChild(gridItem);
       }
     }
 
-    // Load items on page load.
-    loadItems();
+    // Function to overlay the "found" message.
+    function showFoundOverlay(itemId) {
+      document.getElementById('itemNumber').textContent = itemId;
+      document.getElementById('itemImage').src = itemId + ".jpg";
+      document.getElementById('foundOverlay').classList.add('active');
+    }
+
+    // Get URL parameter "code"
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlCode = urlParams.get('code');
+
+    // Main logic: If a code is provided, check against known codes.
+    if (urlCode) {
+      // Fetch the known codes document from collection "codes", document "0wkfRuq3MOUsE58I8GIX"
+      db.collection("codes").doc("0wkfRuq3MOUsE58I8GIX").get()
+        .then(doc => {
+          if (!doc.exists) {
+            console.error("Codes document not found.");
+            loadItems(); // Just load grid if error
+            return;
+          }
+          const codesData = doc.data();
+          let matchedItem = null;
+          // Loop through each field (e.g., "01", "02", …) to find a match.
+          for (let key in codesData) {
+            if (codesData[key] === urlCode) {
+              matchedItem = key; // key is the associated item number (e.g., "01")
+              break;
+            }
+          }
+          if (!matchedItem) {
+            // No match found: simply load grid.
+            loadItems();
+            return;
+          }
+          // Get visitor IP using ipify.
+          fetch("https://api.ipify.org?format=json")
+            .then(response => response.json())
+            .then(ipData => {
+              const ip = ipData.ip || "0.0.0.0";
+              const dateTime = formatCurrentDateTime();
+              // Update the matched item in the "items" collection.
+              db.collection("items").doc(matchedItem).set({
+                found: 1,
+                dateFound: dateTime,
+                ip: ip
+              }, { merge: true })
+              .then(() => {
+                console.log("Item " + matchedItem + " updated as found.");
+                // Reload grid so status is updated.
+                loadItems();
+                // Show the overlay modal.
+                showFoundOverlay(matchedItem);
+              })
+              .catch(error => {
+                console.error("Error updating item:", error);
+                loadItems();
+              });
+            })
+            .catch(error => {
+              console.error("Error fetching IP:", error);
+              loadItems();
+            });
+        })
+        .catch(error => {
+          console.error("Error retrieving codes:", error);
+          loadItems();
+        });
+    } else {
+      // No code provided, just load the grid.
+      loadItems();
+    }
   </script>
 </body>
 </html>
