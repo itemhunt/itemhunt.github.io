@@ -57,12 +57,19 @@
       align-items: center;
       margin-top: 10px;
     }
-    /* Decreased grid text size (60% of current value) */
+    /* Desktop text size for grid boxes */
     .item-number,
     .status {
       font-weight: bold;
       font-size: 0.86em;
       margin: 5px 0;
+    }
+    /* On mobile, reduce text size to 60% of desktop value */
+    @media (max-width: 767px) {
+      .item-number,
+      .status {
+        font-size: 0.52em;
+      }
     }
     .red-color {
       color: #DB4437;
